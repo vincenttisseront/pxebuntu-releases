@@ -1,0 +1,58 @@
+# Publication d'une version PXEBuntu sans intervention manuelle.
+# La session de développement pousse une branche publication/vX.Y.Z contenant le dossier
+# publication/vX.Y.Z/ (notes.md, paquet découpé en morceaux, signature, empreinte, outil,
+# liste des paquets). Ce workflow réassemble le paquet, vérifie son empreinte et sa
+# signature Ed25519 avec la clé publique de l'appliance, crée la version GitHub puis
+# supprime la branche (les fichiers lourds ne restent pas dans main).
+name: publier
+on:
+  push:
+    branches: ["publication/v*"]
+permissions:
+  contents: write
+concurrency:
+  group: ${{ github.ref }}
+jobs:
+  publier:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        id: v
+        run: |
+          tag=${GITHUB_REF_NAME#publication/}
+          echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "branche inattendue : $GITHUB_REF_NAME"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "ver=${tag#v}" >> "$GITHUB_OUTPUT"
+      - name: Réassembler et vérifier
+        working-directory: publication/${{ steps.v.outputs.tag }}
+        run: |
+          ver=${{ steps.v.outputs.ver }}
+          cat pxebuntu-$ver-update.tar.part* > pxebuntu-$ver-update.tar
+          sha256sum -c pxebuntu-$ver-update.tar.sha256
+          cat > pub.pem <<'KEY'
+          -----BEGIN PUBLIC KEY-----
+          MCowBQYDK2VwAyEAZuIxpcQeGreXprGqNVMfgehMcBO/ep0B5YeIIykISD4=
+          -----END PUBLIC KEY-----
+          KEY
+          sed -i 's/^ *//' pub.pem
+          openssl pkeyutl -verify -pubin -inkey pub.pem -rawin -in pxebuntu-$ver-update.tar \
+            -sigfile pxebuntu-$ver-update.tar.sig
+      - name: Créer la version
+        working-directory: publication/${{ steps.v.outputs.tag }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=${{ steps.v.outputs.tag }}; ver=${{ steps.v.outputs.ver }}
+          files="pxebuntu-$ver-update.tar pxebuntu-$ver-update.tar.sig pxebuntu-$ver-update.tar.sha256 pxebuntu-update pxebuntu-$ver-packages.lock"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" $files --clobber
+            gh release edit "$tag" --notes-file notes.md --title "PXEBuntu $ver"
+          else
+            gh release create "$tag" --target main --title "PXEBuntu $ver" --notes-file notes.md --latest $files
+          fi
+      - name: Supprimer la branche de publication
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${GITHUB_REF_NAME}"
