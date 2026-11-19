@@ -8,7 +8,7 @@ VERSION=$1; SRC=$2; NOTES=$3
 case $VERSION in [0-9]*.[0-9]*.[0-9]*) ;; *) echo "version invalide" >&2; exit 2;; esac
 TOP=$(cd "$(dirname "$0")/.." && pwd)
 cd "$TOP"
-git fetch -q origin main
+git fetch -q origin main:refs/remotes/origin/main
 git checkout -q -B "publication/v$VERSION" origin/main
 D="publication/v$VERSION"
 mkdir -p "$D"
