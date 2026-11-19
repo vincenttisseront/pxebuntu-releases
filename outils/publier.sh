@@ -19,7 +19,7 @@ for f in "pxebuntu-$VERSION-update.tar.sha256" "pxebuntu-$VERSION-update.tar.sig
 done
 split -b 45M -d "$SRC/pxebuntu-$VERSION-update.tar" "$D/pxebuntu-$VERSION-update.tar.part"
 git add "$D"
-git commit -q -m "Publication $VERSION"
+git commit -q -m "Publication $VERSION" ${COMMIT_TRAILERS:+-m "$COMMIT_TRAILERS"}
 git push -q -f origin "publication/v$VERSION"
 git checkout -q main
 git branch -q -D "publication/v$VERSION"
