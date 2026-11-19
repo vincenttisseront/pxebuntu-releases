@@ -44,3 +44,20 @@ Clé publique de signature (Ed25519) :
 MCowBQYDK2VwAyEAZuIxpcQeGreXprGqNVMfgehMcBO/ep0B5YeIIykISD4=
 -----END PUBLIC KEY-----
 ```
+
+## Publication d'une version
+
+Le workflow `.github/workflows/publier.yml` publie les versions. Pour publier
+`X.Y.Z`, pousser une branche `publication/vX.Y.Z` contenant
+`publication/vX.Y.Z/` : `notes.md`, le paquet découpé en
+`pxebuntu-X.Y.Z-update.tar.partNN`, sa signature, son empreinte,
+`pxebuntu-update` et la liste des paquets. Le script `outils/publier.sh`
+le fait :
+
+```
+outils/publier.sh X.Y.Z DOSSIER_DU_PAQUET NOTES.md
+```
+
+Le workflow reconstitue le paquet, vérifie l'empreinte et la signature avec la
+clé publique ci-dessus, crée la version (ou remplace ses fichiers si elle
+existe), puis supprime la branche.
